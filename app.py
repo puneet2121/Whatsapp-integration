@@ -147,7 +147,8 @@ def home():
     return "WhatsApp Shopify Flask App Running"
 
 
-@app.route('/shopify-order', methods=['POST'])
+@app.route('/webhook/shopify-order', methods=['POST'])
+
 def handle_order():
     data = request.json
     customer = data.get("customer", {})
@@ -163,7 +164,7 @@ def handle_order():
     return jsonify({"status": "Order processed"}), 200
 
 
-@app.route('/shopify-abandoned-cart', methods=['POST'])
+@app.route('/webhook/shopify-abandoned-cart', methods=['POST'])
 def abandoned_cart():
     data = request.json
     customer = data.get("customer", {})
