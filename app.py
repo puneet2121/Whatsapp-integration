@@ -5,8 +5,8 @@ import json
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
-PHONE_NUMBER_ID = os.environ.get('PHONE_NUMBER_ID')
+ACCESS_TOKEN = "EAAaVEg97aqoBO9tRncoXSZBul00UtfGRlZCY1ZAQfZBZCFTs5CtKGpxmn1XXVTSZCsdZCZCxucgytL2rnqEVHEWF7eqpekGfOPGWEWxK0OgZAlTJ3t2TxUW74CQPj2kpGETgqXRIrZBGbfZBhp19xaq6pqsZAskJrq99DUrxDU7Ax5HSRCQwvyQ0eScA88lZBrVIGneeFvdE3W7kbdTWmmqMwvvIAKU4ZD"
+PHONE_NUMBER_ID = "629828370214498"
 WHATSAPP_API_URL = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
 VERIFY_TOKEN = "puneethook"  # You define this yourself (use the same when setting up webhook in Meta)
 
@@ -125,13 +125,26 @@ def whatsapp_webhook():
                             from_number = message.get("from")
                             name = value.get("contacts", [{}])[0].get("profile", {}).get("name", "Customer")
 
+                            # ✅ Case 1: Button click reply
                             if message.get("type") == "button":
                                 button_reply_id = message["button"]["payload"]
 
-                                if button_reply_id == "yes_confirm":
-                                    send_text_message(from_number, f"Thanks {name}, your order is confirmed! 📦 We will ship your item shortly.")
+                                if button_reply_id == "yes":
+                                    send_text_message(from_number,
+                                                      f"Thanks {name}, your order is confirmed! 📦 We will ship your item shortly.")
                                 elif button_reply_id == "no_cancel":
-                                    send_text_message(from_number, f"Hi {name}, your order has been canceled as requested. Let us know if you need help!")
+                                    send_text_message(from_number,
+                                                      f"Hi {name}, your order has been canceled as requested. Let us know if you need help!")
+
+                            # ✅ Case 2: Manual text reply like "yes"
+                            elif message.get("type") == "text":
+                                text = message["text"]["body"].strip().lower()
+                                if text == "yes":
+                                    send_text_message(from_number,
+                                                      f"Thanks {name}, your order is confirmed! 📦 We will ship your item shortly.")
+                                elif text in ["no", "cancel", "no cancel"]:
+                                    send_text_message(from_number,
+                                                      f"Hi {name}, your order has been canceled as requested. Let us know if you need help!")
 
         return "EVENT_RECEIVED", 200
 
