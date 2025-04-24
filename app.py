@@ -1,59 +1,22 @@
-# import requests
-#
-
-# RECIPIENT_PHONE = "whatsapp:+15874326564"  # Your test/customer number
-#
-#
-# TEMPLATE_NAME = "order_confirmation"  # Ensure this is the correct template name
-# API_VERSION = "v19.0"
-#
-# url = f"https://graph.facebook.com/{API_VERSION}/{PHONE_NUMBER_ID}/messages"
-#
-# headers = {
-#     "Authorization": f"Bearer {ACCESS_TOKEN}",
-#     "Content-Type": "application/json"
-# }
-#
-# data = {
-#     "messaging_product": "whatsapp",
-#     "to": RECIPIENT_PHONE,
-#     "type": "template",
-#     "template": {
-#         "name": TEMPLATE_NAME,
-#         "language": { "code": "en" },  # Language code for English
-#         "components": [
-#             {
-#                 "type": "body",
-#                 "parameters": []  # No parameters needed for this template
-#             }
-#         ]
-#     }
-# }
-#
-# response = requests.post(url, headers=headers, json=data)
-#
-# print(response.status_code)
-# print(response.json())
-#
-# print(response.status_code)
-# print(response.json())
-
-
 from flask import Flask, request, jsonify
 import requests
+import os
 import json
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 
-import os
-
-ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
-
+ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
+PHONE_NUMBER_ID = os.getenv('PHONE_NUMBER_ID')
 WHATSAPP_API_URL = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+VERIFY_TOKEN = "puneethook"  # You define this yourself (use the same when setting up webhook in Meta)
 
 
-# Utils to send messages
+# ---------- Messaging Utils ----------
+
 def send_text_message(phone, message):
     data = {
         "messaging_product": "whatsapp",
@@ -84,9 +47,7 @@ def send_template_message(name, order_id, price, phone):
             "components": [
                 {
                     "type": "body",
-                    "parameters": [
-
-                    ]
+                    "parameters": []
                 }
             ]
         }
@@ -139,14 +100,52 @@ def send_yes_no_buttons(name, order_id, price, phone):
     return response
 
 
-# Routes
+# ---------- Webhooks ----------
+
+@app.route('/webhook/whatsapp-reply', methods=['GET', 'POST'])
+def whatsapp_webhook():
+    if request.method == 'GET':
+        # Verify token for Meta Webhook setup
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
+
+        if mode == 'subscribe' and token == VERIFY_TOKEN:
+            return challenge, 200
+        else:
+            return 'Verification failed', 403
+
+    if request.method == 'POST':
+        data = request.get_json()
+        print("WhatsApp message received:", json.dumps(data, indent=2))
+
+        if data.get("entry"):
+            for entry in data["entry"]:
+                if entry.get("changes"):
+                    for change in entry["changes"]:
+                        value = change.get("value", {})
+                        messages = value.get("messages", [])
+                        for message in messages:
+                            from_number = message.get("from")
+                            name = value.get("contacts", [{}])[0].get("profile", {}).get("name", "Customer")
+
+                            if message.get("type") == "button":
+                                button_reply_id = message["button"]["payload"]
+
+                                if button_reply_id == "yes_confirm":
+                                    send_text_message(from_number, f"Thanks {name}, your order is confirmed! 📦 We will ship your item shortly.")
+                                elif button_reply_id == "no_cancel":
+                                    send_text_message(from_number, f"Hi {name}, your order has been canceled as requested. Let us know if you need help!")
+
+        return "EVENT_RECEIVED", 200
+
+
 @app.route('/')
 def home():
     return "WhatsApp Shopify Flask App Running"
 
 
 @app.route('/webhook/shopify-order', methods=['POST'])
-
 def handle_order():
     data = request.json
     customer = data.get("customer", {})
@@ -154,6 +153,7 @@ def handle_order():
     phone = customer.get("phone")
     order_id = data.get("id")
     price = data.get("total_price")
+    print("Shopify order received.")
 
     if phone:
         send_template_message(name, order_id, price, phone)
@@ -177,5 +177,6 @@ def abandoned_cart():
     return jsonify({"status": "Cart reminder sent"}), 200
 
 
+# ---------- Run Server ----------
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
