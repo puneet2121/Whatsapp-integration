@@ -125,16 +125,17 @@ def whatsapp_webhook():
                             from_number = message.get("from")
                             name = value.get("contacts", [{}])[0].get("profile", {}).get("name", "Customer")
 
-                            # ✅ Case 1: Button click reply
-                            if message.get("type") == "button":
-                                button_reply_id = message["button"]["payload"]
-
-                                if button_reply_id == "yes":
-                                    send_text_message(from_number,
-                                                      f"Thanks {name}, your order is confirmed! 📦 We will ship your item shortly.")
-                                elif button_reply_id == "no_cancel":
-                                    send_text_message(from_number,
-                                                      f"Hi {name}, your order has been canceled as requested. Let us know if you need help!")
+                            # ✅ Case 1: Button click (interactive)
+                            if message.get("type") == "interactive":
+                                interactive_type = message["interactive"]["type"]
+                                if interactive_type == "button_reply":
+                                    button_reply_id = message["interactive"]["button_reply"]["id"]
+                                    if button_reply_id == "yes":
+                                        send_text_message(from_number,
+                                                          f"Thanks {name}, your order is confirmed! 📦 We will ship your item shortly.")
+                                    elif button_reply_id == "no_cancel":
+                                        send_text_message(from_number,
+                                                          f"Hi {name}, your order has been canceled as requested. Let us know if you need help!")
 
                             # ✅ Case 2: Manual text reply like "yes"
                             elif message.get("type") == "text":
