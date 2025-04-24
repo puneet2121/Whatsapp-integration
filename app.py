@@ -79,15 +79,13 @@ def send_template_message(name, order_id, price, phone):
         "to": f"whatsapp:{phone}",
         "type": "template",
         "template": {
-            "name": "order_confirm",
-            "language": {"code": "en_US"},
+            "name": "order_confirmation",
+            "language": {"code": "en"},
             "components": [
                 {
                     "type": "body",
                     "parameters": [
-                        {"type": "text", "text": name},
-                        {"type": "text", "text": order_id},
-                        {"type": "text", "text": str(price)}
+
                     ]
                 }
             ]
