@@ -2,15 +2,11 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import json
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
-PHONE_NUMBER_ID = os.getenv('PHONE_NUMBER_ID')
+ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
+PHONE_NUMBER_ID = os.environ.get('PHONE_NUMBER_ID')
 WHATSAPP_API_URL = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
 VERIFY_TOKEN = "puneethook"  # You define this yourself (use the same when setting up webhook in Meta)
 
