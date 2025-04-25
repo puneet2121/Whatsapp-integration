@@ -5,7 +5,7 @@ import json
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
+ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
 PHONE_NUMBER_ID = "629828370214498"
 WHATSAPP_API_URL = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
 VERIFY_TOKEN = "puneethook"  # You define this yourself (use the same when setting up webhook in Meta)
@@ -104,27 +104,29 @@ def send_template_message(phone, customer_name, product_name, image_url):
 
 @app.route('/webhook/whatsapp-reply', methods=['POST'])
 def handle_whatsapp_reply():
-    try:
-        data = request.json
-        print("Received data:", data)  # Log the full data to see what's being sent
+    # Get the incoming data
+    data = request.json
+    print("Received data:", data)
 
-        # Check if there's a button with the expected payload
-        if 'button' in data and 'payload' in data['button']:
-            button_payload = data['button']['payload']
-            print(f"Received button payload: {button_payload}")
+    # Check if the data contains button interaction
+    if 'entry' in data:
+        for entry in data['entry']:
+            changes = entry.get('changes', [])
+            for change in changes:
+                value = change.get('value', {})
+                if 'messages' in value:
+                    for message in value['messages']:
+                        # Check if the message contains a button response
+                        if 'interactive' in message:
+                            button_payload = message['interactive'].get('button', {}).get('payload')
+                            if button_payload:
+                                if button_payload == "Yes-Button-Payload":
+                                    return jsonify({"status": "Received Yes button payload"})
+                                elif button_payload == "No-Button-Payload":
+                                    return jsonify({"status": "Received No button payload"})
 
-            if button_payload == 'Yes-Button-Payload':
-                return jsonify({"status": "User confirmed the order"}), 200
-            elif button_payload == 'No-Button-Payload':
-                return jsonify({"status": "User declined the order"}), 200
-            else:
-                return jsonify({"status": "Unrecognized response"}), 400
-        else:
-            print("Button data missing or malformed")
-            return jsonify({"status": "No button data found"}), 400
-    except Exception as e:
-        print("Error processing the request:", str(e))
-        return jsonify({"status": "Error processing request"}), 500
+    return jsonify({"status": "Error", "message": "Button data missing or malformed"}), 400
+
 
 
 
