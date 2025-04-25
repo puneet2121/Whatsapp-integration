@@ -5,7 +5,7 @@ import json
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = "EAAaVEg97aqoBO9tRncoXSZBul00UtfGRlZCY1ZAQfZBZCFTs5CtKGpxmn1XXVTSZCsdZCZCxucgytL2rnqEVHEWF7eqpekGfOPGWEWxK0OgZAlTJ3t2TxUW74CQPj2kpGETgqXRIrZBGbfZBhp19xaq6pqsZAskJrq99DUrxDU7Ax5HSRCQwvyQ0eScA88lZBrVIGneeFvdE3W7kbdTWmmqMwvvIAKU4ZD"
+ACCESS_TOKEN = ""
 PHONE_NUMBER_ID = "629828370214498"
 WHATSAPP_API_URL = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
 VERIFY_TOKEN = "puneethook"  # You define this yourself (use the same when setting up webhook in Meta)
@@ -32,19 +32,61 @@ def send_text_message(phone, message):
     return response
 
 
-def send_template_message(name, order_id, price, phone):
+def send_template_message(phone, customer_name, product_name, image_url):
     data = {
         "messaging_product": "whatsapp",
-        "to": f"whatsapp:{phone}",
+        "to": phone,
         "type": "template",
         "template": {
             "name": "order_confirmation",
             "language": {"code": "en"},
             "components": [
                 {
+                    "type": "header",
+                    "parameters": [
+                        {
+                            "type": "image",
+                            "image": {"link": image_url},
+                        }
+                    ]
+                },
+                {
                     "type": "body",
-                    "parameters": []
+                    "parameters": [
+                        {"type": "text", "parameter_name": "customer_name", "text": customer_name},
+
+                        {"type": "text", "parameter_name": "product_name", "text": product_name}
+                    ]
+                },
+                {
+                    "type": "footer",  # Optional, if you want to include footer
+                    "parameters": [
+                        {"type": "text", "text": "Thank you for your Order"}
+                    ]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": 0,
+                    "parameters": [
+                        {
+                            "type": "payload",
+                            "payload": "Yes-Button-Payload"
+                        }
+                    ]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": 1,
+                    "parameters": [
+                        {
+                            "type": "payload",
+                            "payload": "No-Button-Payload"
+                        }
+                    ]
                 }
+
             ]
         }
     }
@@ -52,102 +94,28 @@ def send_template_message(name, order_id, price, phone):
         "Authorization": f"Bearer {ACCESS_TOKEN}",
         "Content-Type": "application/json"
     }
+    print(data)
     response = requests.post(WHATSAPP_API_URL, headers=headers, json=data)
     print("Template Message Response:", response.status_code, response.text)
-    return response
-
-
-def send_yes_no_buttons(name, order_id, price, phone):
-    data = {
-        "messaging_product": "whatsapp",
-        "to": f"whatsapp:{phone}",
-        "type": "interactive",
-        "interactive": {
-            "type": "button",
-            "body": {
-                "text": f"Hi {name}, please confirm your order #{order_id} of ₹{price}."
-            },
-            "action": {
-                "buttons": [
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "yes_confirm",
-                            "title": "Yes"
-                        }
-                    },
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "no_cancel",
-                            "title": "No"
-                        }
-                    }
-                ]
-            }
-        }
-    }
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    response = requests.post(WHATSAPP_API_URL, headers=headers, json=data)
-    print("Button Message Response:", response.status_code, response.text)
     return response
 
 
 # ---------- Webhooks ----------
 
 @app.route('/webhook/whatsapp-reply', methods=['GET', 'POST'])
-def whatsapp_webhook():
-    if request.method == 'GET':
-        # Verify token for Meta Webhook setup
-        mode = request.args.get('hub.mode')
-        token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
+def handle_whatsapp_response():
+    data = request.json
+    # Capture the payload from the button click
+    button_payload = data.get('button', {}).get('payload', '')
 
-        if mode == 'subscribe' and token == VERIFY_TOKEN:
-            return challenge, 200
-        else:
-            return 'Verification failed', 403
-
-    if request.method == 'POST':
-        data = request.get_json()
-        print("WhatsApp message received:", json.dumps(data, indent=2))
-
-        if data.get("entry"):
-            for entry in data["entry"]:
-                if entry.get("changes"):
-                    for change in entry["changes"]:
-                        value = change.get("value", {})
-                        messages = value.get("messages", [])
-                        for message in messages:
-                            from_number = message.get("from")
-                            name = value.get("contacts", [{}])[0].get("profile", {}).get("name", "Customer")
-
-                            # ✅ Case 1: Button click (interactive)
-                            if message.get("type") == "interactive":
-                                interactive_type = message["interactive"]["type"]
-                                if interactive_type == "button_reply":
-                                    button_reply_id = message["interactive"]["button_reply"]["id"]
-                                    if button_reply_id == "yes":
-                                        send_text_message(from_number,
-                                                          f"Thanks {name}, your order is confirmed! 📦 We will ship your item shortly.")
-                                    elif button_reply_id == "no_cancel":
-                                        send_text_message(from_number,
-                                                          f"Hi {name}, your order has been canceled as requested. Let us know if you need help!")
-
-                            # ✅ Case 2: Manual text reply like "yes"
-                            elif message.get("type") == "text":
-                                text = message["text"]["body"].strip().lower()
-                                if text == "yes":
-                                    send_text_message(from_number,
-                                                      f"Thanks {name}, your order is confirmed! 📦 We will ship your item shortly.")
-                                elif text in ["no", "cancel", "no cancel"]:
-                                    send_text_message(from_number,
-                                                      f"Hi {name}, your order has been canceled as requested. Let us know if you need help!")
-
-        return "EVENT_RECEIVED", 200
+    if button_payload == 'Yes-Button-Payload':
+        # Handle the "Yes" response
+        return jsonify({"status": "User confirmed order"}), 200
+    elif button_payload == 'No-Button-Payload':
+        # Handle the "No" response
+        return jsonify({"status": "User declined order"}), 200
+    else:
+        return jsonify({"status": "Invalid response"}), 400
 
 
 @app.route('/')
@@ -159,15 +127,20 @@ def home():
 def handle_order():
     data = request.json
     customer = data.get("customer", {})
-    name = customer.get("first_name", "Customer")
+    product = data.get("product", {})
+    name = customer.get("name", "Customer")
     phone = customer.get("phone")
-    order_id = data.get("id")
-    price = data.get("total_price")
-    print("Shopify order received.")
+    product_name = product.get("title", "Product")
+    image_url = product.get("image_url",
+                            "https://mixwix.in/cdn/shop/files/Untitled_design_-_2025-03-13T082510.334.png?v=1741865378&width=360")
 
     if phone:
-        send_template_message(name, order_id, price, phone)
-        send_yes_no_buttons(name, order_id, price, phone)
+        send_template_message(
+            phone="+15874326564",
+            customer_name="John",
+            product_name="iPhone 15 Pro Case",
+            image_url="https://mixwix.in/cdn/shop/files/Untitled_design_-_2025-03-13T082510.334.png?v=1741865378&width=360"
+        )
 
     return jsonify({"status": "Order processed"}), 200
 
@@ -176,7 +149,7 @@ def handle_order():
 def abandoned_cart():
     data = request.json
     customer = data.get("customer", {})
-    name = customer.get("first_name", "there")
+    name = customer.get("customer_name", "there")
     phone = customer.get("phone")
     cart_url = data.get("landing_site", "https://yourstore.myshopify.com")
 
