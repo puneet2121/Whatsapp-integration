@@ -5,7 +5,7 @@ import json
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = ""
+ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
 PHONE_NUMBER_ID = "629828370214498"
 WHATSAPP_API_URL = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
 VERIFY_TOKEN = "puneethook"  # You define this yourself (use the same when setting up webhook in Meta)
