@@ -5,7 +5,7 @@ import json
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
+ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
 PHONE_NUMBER_ID = "629828370214498"
 WHATSAPP_API_URL = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
 VERIFY_TOKEN = "puneethook"  # You define this yourself (use the same when setting up webhook in Meta)
@@ -102,20 +102,24 @@ def send_template_message(phone, customer_name, product_name, image_url):
 
 # ---------- Webhooks ----------
 
-@app.route('/webhook/whatsapp-reply', methods=['GET', 'POST'])
-def handle_whatsapp_response():
+@app.route('/webhook/whatsapp-reply', methods=['POST'])
+def handle_whatsapp_reply():
     data = request.json
-    # Capture the payload from the button click
-    button_payload = data.get('button', {}).get('payload', '')
+    print("Received data:", data)  # Log the incoming request data
 
-    if button_payload == 'Yes-Button-Payload':
-        # Handle the "Yes" response
-        return jsonify({"status": "User confirmed order"}), 200
-    elif button_payload == 'No-Button-Payload':
-        # Handle the "No" response
-        return jsonify({"status": "User declined order"}), 200
+    if 'button' in data:
+        button_payload = data['button'].get('payload')
+        print(f"Received button payload: {button_payload}")  # Log the button payload
+
+        if button_payload == 'Yes-Button-Payload':
+            return jsonify({"status": "User confirmed the order"}), 200
+        elif button_payload == 'No-Button-Payload':
+            return jsonify({"status": "User declined the order"}), 200
+        else:
+            return jsonify({"status": "Unrecognized response"}), 400
     else:
-        return jsonify({"status": "Invalid response"}), 400
+        return jsonify({"status": "No button data found"}), 400
+
 
 
 @app.route('/')
