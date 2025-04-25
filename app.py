@@ -5,7 +5,7 @@ import json
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
+ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
 PHONE_NUMBER_ID = "629828370214498"
 WHATSAPP_API_URL = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
 VERIFY_TOKEN = "puneethook"  # You define this yourself (use the same when setting up webhook in Meta)
@@ -104,21 +104,28 @@ def send_template_message(phone, customer_name, product_name, image_url):
 
 @app.route('/webhook/whatsapp-reply', methods=['POST'])
 def handle_whatsapp_reply():
-    data = request.json
-    print("Received data:", data)  # Log the incoming request data
+    try:
+        data = request.json
+        print("Received data:", data)  # Log the full data to see what's being sent
 
-    if 'button' in data:
-        button_payload = data['button'].get('payload')
-        print(f"Received button payload: {button_payload}")  # Log the button payload
+        # Check if there's a button with the expected payload
+        if 'button' in data and 'payload' in data['button']:
+            button_payload = data['button']['payload']
+            print(f"Received button payload: {button_payload}")
 
-        if button_payload == 'Yes-Button-Payload':
-            return jsonify({"status": "User confirmed the order"}), 200
-        elif button_payload == 'No-Button-Payload':
-            return jsonify({"status": "User declined the order"}), 200
+            if button_payload == 'Yes-Button-Payload':
+                return jsonify({"status": "User confirmed the order"}), 200
+            elif button_payload == 'No-Button-Payload':
+                return jsonify({"status": "User declined the order"}), 200
+            else:
+                return jsonify({"status": "Unrecognized response"}), 400
         else:
-            return jsonify({"status": "Unrecognized response"}), 400
-    else:
-        return jsonify({"status": "No button data found"}), 400
+            print("Button data missing or malformed")
+            return jsonify({"status": "No button data found"}), 400
+    except Exception as e:
+        print("Error processing the request:", str(e))
+        return jsonify({"status": "Error processing request"}), 500
+
 
 
 
