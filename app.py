@@ -126,24 +126,24 @@ def handle_whatsapp_reply():
                     value = change.get('value', {})
                     if 'messages' in value:
                         for message in value['messages']:
-                            if 'interactive' in message:
-                                button_payload = message['interactive'].get('button', {}).get('payload')
+                            if 'button' in message:
+                                button_payload = message['button'].get('payload')
                                 print("Button Payload Received:", button_payload)
 
-                                # Get customer phone
                                 phone_number = message['from']
+                                print("Phone number who clicked:", phone_number)
 
                                 if button_payload == "Yes-Button-Payload":
-                                    # If clicked YES
-                                    thank_you_message = "🎉 Thank you for confirming your order! We’re preparing it now. 🚚"
+                                    # Customer clicked Yes
+                                    thank_you_message = "🎉 Thank you for confirming your order! Your order is now being processed. 🚚"
                                     send_text_message(phone_number, thank_you_message)
-                                    return jsonify({"status": "Received Yes button and replied"}), 200
+                                    return jsonify({"status": "Replied to YES"}), 200
 
                                 elif button_payload == "No-Button-Payload":
-                                    # If clicked NO
-                                    sorry_message = "😔 Thanks for letting us know. Please contact support if you need help changing your order!"
+                                    # Customer clicked No
+                                    sorry_message = "😔 Thanks for letting us know! If you need help changing or cancelling your order, please contact our support team."
                                     send_text_message(phone_number, sorry_message)
-                                    return jsonify({"status": "Received No button and replied"}), 200
+                                    return jsonify({"status": "Replied to NO"}), 200
 
         return jsonify({"status": "No button interaction found"}), 200
 
