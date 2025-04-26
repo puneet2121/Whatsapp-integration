@@ -99,6 +99,7 @@ def send_template_message(phone, customer_name, product_name, image_url):
     print("Template Message Response:", response.status_code, response.text)
     return response
 
+
 @app.route('/webhook/whatsapp-reply', methods=['GET', 'POST'])
 def handle_whatsapp_reply():
     if request.method == 'GET':
@@ -148,9 +149,6 @@ def handle_whatsapp_reply():
         return jsonify({"status": "No button interaction found"}), 200
 
 
-
-
-
 @app.route('/')
 def home():
     return "WhatsApp Shopify Flask App Running"
@@ -169,28 +167,88 @@ def handle_order():
 
     if phone:
         send_template_message(
-            phone="+15874326564",
-            customer_name="John",
-            product_name="iPhone 15 Pro Case",
-            image_url="https://mixwix.in/cdn/shop/files/Untitled_design_-_2025-03-13T082510.334.png?v=1741865378&width=360"
+            phone=phone,  # Dynamic phone
+            customer_name=name,  # Dynamic customer name
+            product_name=product_name,  # Dynamic product name
+            image_url=image_url  # Dynamic image if provided, else fallback
         )
-
     return jsonify({"status": "Order processed"}), 200
+
+
+def send_abandoned_cart_template(phone, customer_name, item_name, checkout_url):
+    data = {
+        "messaging_product": "whatsapp",
+        "to": phone,
+        "type": "template",
+        "template": {
+            "name": "abandon_cart",
+            "language": {"code": "en"},
+            "components": [
+                {
+                    "type": "header",
+                    "parameters": [
+                        {
+                            "type": "text",
+                            "text": item_name
+                        }
+                    ]
+                },
+                {
+                    "type": "body",
+                    "parameters": [
+                        {
+                            "type": "text",
+                            "text": customer_name
+                        },
+                        {
+                            "type": "text",
+                            "text": item_name
+                        }
+                    ]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "url",
+                    "index": 0,
+                    "parameters": [
+                        {
+                            "type": "text",
+                            "text": checkout_url
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    response = requests.post(WHATSAPP_API_URL, headers=headers, json=data)
+    print("Abandoned Cart Template Response:", response.status_code, response.text)
+    return response
 
 
 @app.route('/webhook/shopify-abandoned-cart', methods=['POST'])
 def abandoned_cart():
     data = request.json
     customer = data.get("customer", {})
-    name = customer.get("customer_name", "there")
+    name = customer.get("name", "there")  # fallback if name missing
     phone = customer.get("phone")
-    cart_url = data.get("landing_site", "https://yourstore.myshopify.com")
+
+    cart = data.get("cart", {})
+    cart_item_name = cart.get("first_product_name", "items")  # fallback if missing
+    checkout_url = data.get("landing_site", "https://mixwix.in/")  # fallback to your homepage if missing
 
     if phone:
-        message = f"Hi {name}, you left some items in your cart 🛒. Complete your purchase here: {cart_url}"
-        send_text_message(phone, message)
+        send_abandoned_cart_template(
+            phone=phone,
+            customer_name=name,
+            item_name=cart_item_name,
+            checkout_url=checkout_url
+        )
 
-    return jsonify({"status": "Cart reminder sent"}), 200
+    return jsonify({"status": "Abandoned cart reminder sent"}), 200
 
 
 # ---------- Run Server ----------
