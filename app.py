@@ -99,33 +99,53 @@ def send_template_message(phone, customer_name, product_name, image_url):
     print("Template Message Response:", response.status_code, response.text)
     return response
 
-
-# ---------- Webhooks ----------
-
-@app.route('/webhook/whatsapp-reply', methods=['POST'])
+@app.route('/webhook/whatsapp-reply', methods=['GET', 'POST'])
 def handle_whatsapp_reply():
-    # Get the incoming data
-    data = request.json
-    print("Received data:", data)
+    if request.method == 'GET':
+        mode = request.args.get('hub.mode')
+        challenge = request.args.get('hub.challenge')
+        token = request.args.get('hub.verify_token')
 
-    # Check if the data contains button interaction
-    if 'entry' in data:
-        for entry in data['entry']:
-            changes = entry.get('changes', [])
-            for change in changes:
-                value = change.get('value', {})
-                if 'messages' in value:
-                    for message in value['messages']:
-                        # Check if the message contains a button response
-                        if 'interactive' in message:
-                            button_payload = message['interactive'].get('button', {}).get('payload')
-                            if button_payload:
+        VERIFY_TOKEN = 'your-custom-verify-token'
+
+        if mode and token:
+            if mode == 'subscribe' and token == VERIFY_TOKEN:
+                print('WEBHOOK_VERIFIED')
+                return challenge, 200
+            else:
+                return "Verification token mismatch", 403
+
+    if request.method == 'POST':
+        data = request.json
+        print("Received data:", data)
+
+        if 'entry' in data:
+            for entry in data['entry']:
+                changes = entry.get('changes', [])
+                for change in changes:
+                    value = change.get('value', {})
+                    if 'messages' in value:
+                        for message in value['messages']:
+                            if 'interactive' in message:
+                                button_payload = message['interactive'].get('button', {}).get('payload')
+                                print("Button Payload Received:", button_payload)
+
+                                # Get customer phone
+                                phone_number = message['from']
+
                                 if button_payload == "Yes-Button-Payload":
-                                    return jsonify({"status": "Received Yes button payload"})
-                                elif button_payload == "No-Button-Payload":
-                                    return jsonify({"status": "Received No button payload"})
+                                    # If clicked YES
+                                    thank_you_message = "🎉 Thank you for confirming your order! We’re preparing it now. 🚚"
+                                    send_text_message(phone_number, thank_you_message)
+                                    return jsonify({"status": "Received Yes button and replied"}), 200
 
-    return jsonify({"status": "Error", "message": "Button data missing or malformed"}), 400
+                                elif button_payload == "No-Button-Payload":
+                                    # If clicked NO
+                                    sorry_message = "😔 Thanks for letting us know. Please contact support if you need help changing your order!"
+                                    send_text_message(phone_number, sorry_message)
+                                    return jsonify({"status": "Received No button and replied"}), 200
+
+        return jsonify({"status": "No button interaction found"}), 200
 
 
 
